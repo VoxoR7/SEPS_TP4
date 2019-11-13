@@ -36,9 +36,9 @@ int main () {
     reponse_t rep;
     ack_t ack;
 
-    int id = msgget( 12, 0666);
+    int id = msgget( 12, 0666); /* on recupere l'id de la BAL */
 
-    if ( id == -1 ) {
+    if ( id == -1 ) { /* on verifie que la BAL existe bien */
 
         if ( errno == ENOENT )
             printf("La cle de la boite au lettre n'existe pas\n");
@@ -53,19 +53,23 @@ int main () {
     sigemptyset( &( act.sa_mask) );
     act.sa_flags = 0;
 
-    sigaction( SIGINT, &act, NULL );
+    sigaction( SIGINT, &act, NULL ); /* capture du controle C */
 
     act.sa_handler = handleMSGPertes;
     sigemptyset( &( act.sa_mask) );
     act.sa_flags = 0;
 
-    sigaction( SIGALRM, &act, NULL );
+    sigaction( SIGALRM, &act, NULL ); /* nous permet de detecter les pertes de message */
 
     continu = 1;
 
     do {
 
-        msgsnd( id, &req, sizeof( struct corps_requete ), 0);
+        if ( msgsnd( id, &req, sizeof( struct corps_requete ), 0)) {
+
+            printf("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+            exit(2);
+        }
 
         alarm( ATTENTE_AVANT_PERTE );
 
@@ -94,7 +98,12 @@ int main () {
     if ( continu == 0 ) {
 
         req.corps.etat = ABANDON;
-        msgsnd( id, &req, sizeof( struct requete), 0);
+        if ( msgsnd( id, &req, sizeof( struct requete), 0)) {
+
+            printf("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
+            exit(2);
+        }
+
         msgrcv( id, &ack, sizeof( ack_t), getpid(), 0);
 
         messages_afficher_erreur( ack.ack );
