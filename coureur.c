@@ -14,12 +14,12 @@
 
 short continu, reenvoie;
 
-void handleMSGPertes( int sig ) {
+void handleMSGPertes( int sig ) { /* en cas de perte de message, on demande le ré-envoie d'un message */
 
     reenvoie = 1;
 }
 
-void handlerStop( int sig ) {
+void handlerStop( int sig ) { /* pour le ^C */
 
     continu = 0;
 }
@@ -29,7 +29,7 @@ int main () {
     messages_initialiser_attente();
 
     requete_t req;
-    req.corps.dossard = getpid();
+    req.corps.dossard = getpid(); /* initialisation de la requete */
     req.corps.etat = EN_COURSE;
     req.type = PC_COURSE;
 
@@ -65,19 +65,19 @@ int main () {
 
     do {
 
-        if ( msgsnd( id, &req, sizeof( struct corps_requete ), 0)) {
+        if ( msgsnd( id, &req, sizeof( struct corps_requete ), 0)) {/* envoie du premier message */
 
             printf("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
             exit(2);
         }
 
-        alarm( ATTENTE_AVANT_PERTE );
+        alarm( ATTENTE_AVANT_PERTE ); /* delai avant que l'on considére que le message a été perdu */
 
-        while ( msgrcv( id, &rep, sizeof( struct corps_reponse), getpid(), IPC_NOWAIT ) <= 0 ) {
+        while ( msgrcv( id, &rep, sizeof( struct corps_reponse), getpid(), IPC_NOWAIT ) <= 0 ) { /* tant que le serveur nous a pas repondu */
 
-            sleep(1);
+            sleep(1); /* on test la reponse du serveur toutes les 1 secondes */
 
-            if ( reenvoie ) {
+            if ( reenvoie ) { /* si l'alarme s'est déclanché, le message est considérer comme perdu, on renvoie donc le message */
 
                 printf("Le message a été perdu... ré-envoie\n");
                 msgsnd( id, &req, sizeof( struct corps_requete ), 0);
@@ -87,7 +87,7 @@ int main () {
             }
         }
 
-        alarm(0);
+        alarm(0); /* arret de l'alarme */
 
         messages_afficher_reponse( &rep);
         messages_afficher_parcours( &rep);
@@ -95,16 +95,16 @@ int main () {
         messages_attendre_tour();
     } while ( continu && rep.corps.etat != DECANILLE && rep.corps.etat != ARRIVE );
 
-    if ( continu == 0 ) {
+    if ( continu == 0 ) { /* si on a abandoné */
 
         req.corps.etat = ABANDON;
-        if ( msgsnd( id, &req, sizeof( struct requete), 0)) {
+        if ( msgsnd( id, &req, sizeof( struct requete), 0)) { /* on envoie la requete d'abandon au serveur */
 
             printf("%s %s %d\n", __FILE__, __FUNCTION__, __LINE__);
             exit(2);
         }
 
-        msgrcv( id, &ack, sizeof( ack_t), getpid(), 0);
+        msgrcv( id, &ack, sizeof( ack_t), getpid(), 0); /* on attent la confirmation du serveur et on quitte */
 
         messages_afficher_erreur( ack.ack );
     }
